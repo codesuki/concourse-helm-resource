@@ -29,11 +29,12 @@ debug=$(jq -r '.params.debug // "false"' < $payload)
 replace=$(jq -r '.params.replace // "false"' < $payload)
 delete=$(jq -r '.params.delete // "false"' < $payload)
 devel=$(jq -r '.params.devel // "false"' < $payload)
-override_values=$(jq -r ".params.override_values[]? | if .key and .value and (.hide // false) == false then (.key + \"=\" + .value) else empty end | @base64"  < $payload)
-override_values_file=$(jq -r ".params.override_values[]? | if .key and .path and (.hide // false) == false then (.key + \"=\" + .path) else empty end" < $payload)
-override_secrets=$(jq -r ".params.override_values[]? | if .key and .value and .hide then (.key + \"=\" + .value) else empty end | @base64"  < $payload)
-override_secrets_file=$(jq -r ".params.override_values[]? | if .key and .path and .hide then (.key + \"=\" + .path) else empty end" < $payload)
 recreate_pods=$(jq -r '.params.recreate_pods // "false"' < $payload)
+override_values=$(jq -r ".params.override_values[]? | if .key and .value and (.hide // false) == false then (.key + \"=\" + .value) else empty end | @base64"  < $payload)
+override_values_file=$(jq -r ".params.override_values[]? | if .key and .path and (.hide // false) == false and (.encode // false) == false then (.key + \"=\" + .path) else empty end" < $payload)
+override_secrets=$(jq -r ".params.override_values[]? | if .key and .value and .hide then (.key + \"=\" + .value) else empty end | @base64"  < $payload)
+override_secrets_file=$(jq -r ".params.override_values[]? | if .key and .path and .hide and (.encode // false) == false then (.key + \"=\" + .path) else empty end" < $payload)
+override_values_file_encode=$(jq -r ".params.override_values[]? | if .key and .path and .encode and (.hide // false) == false then (.key + \"=\" + .path) else empty end" < $payload)
 
 if [ -z "$chart" ]; then
   echo "invalid payload (missing chart)"
@@ -80,6 +81,15 @@ set_overriden_values() {
     key=${overriden_value_file%%=*}
     value=${overriden_value_file#*=}
     helm_cmd="$helm_cmd --set '$key=$(cat $source/$value)'"
+    helm_echo="$helm_echo --set '$key=$(cat $source/$value)'"
+  done
+
+  # Get value from given path and base64 encode
+  for overriden_value_file_encode in $override_values_file_encode; do
+    # Get key and value for each overridden file value
+    key=${overriden_value_file_encode%%=*}
+    value=${overriden_value_file_encode#*=}
+    helm_cmd="$helm_cmd --set '$key=$(cat $source/$value | base64)'"
     helm_echo="$helm_echo --set '$key=$(cat $source/$value)'"
   done
 
@@ -208,7 +218,7 @@ helm_delete() {
   helm_cmd="$helm_cmd $release | tee $logfile"
   helm_echo="$helm_echo $release | tee $logfile"
   echo "Running command $helm_echo"
-  eval $helm_cmd
+  eval "$helm_cmd"
 }
 
 wait_ready() {
