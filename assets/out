@@ -60,7 +60,7 @@ is_deployed() {
   if [ -n "$1" ]; then
     set +e
     set +o pipefail
-    helm history --tiller-namespace $tiller_namespace $1 2>&1 | grep "DEPLOYED" > /dev/null
+    helm history --max 5 --tiller-namespace $tiller_namespace $1 2>&1 | grep "DEPLOYED\|FAILED" > /dev/null
     if [ $? = 0 ]; then
       # exists
       echo true
@@ -164,7 +164,7 @@ helm_install() {
 
 # Find the current revision of a helm release
 current_revision() {
-  revision=`helm history --tiller-namespace $tiller_namespace $release | grep "DEPLOYED" | awk '{print $1}'`
+  revision=`helm status --max 1 --tiller-namespace $tiller_namespace $release | grep "DEPLOYED" | awk '{print $1}'`
   echo $revision
 }
 
