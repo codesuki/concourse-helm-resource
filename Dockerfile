@@ -1,6 +1,6 @@
 FROM codesuki/docker-helm:2.8.1
 
-RUN apk add --update --upgrade --no-cache jq bash nodejs curl yarn
+RUN apk add --update --upgrade --no-cache jq bash nodejs curl yarn coreutils
 
 ARG KUBERNETES_VERSION=1.9.2
 

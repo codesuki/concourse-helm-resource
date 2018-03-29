@@ -90,7 +90,7 @@ set_overriden_values() {
     # Get key and value for each overridden file value
     key=${overriden_value_file_encode%%=*}
     value=${overriden_value_file_encode#*=}
-    helm_cmd="$helm_cmd --set '$key=$(cat $source/$value | base64)'"
+    helm_cmd="$helm_cmd --set '$key=$(cat $source/$value | base64 -w 0)'"
     helm_echo="$helm_echo --set '$key=$(cat $source/$value)'"
   done
 
