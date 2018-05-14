@@ -102,8 +102,7 @@ set_overriden_values() {
 
 # Find the current revision of a helm release
 current_revision() {
-  revision=`helm status --max 1 --tiller-namespace $tiller_namespace $release | grep "DEPLOYED" | awk '{print $1}'`
-  echo $revision
+  helm history --tiller-namespace $tiller_namespace $release | grep "DEPLOYED" | awk '{ print $1 }'
 }
 
 helm_upgrade() {
