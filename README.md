@@ -46,7 +46,8 @@ on the cluster.
 #### Parameters
 
 * `chart`: *Required.* Either the file containing the helm chart to deploy (ends with .tgz) or the name of the chart (e.g. `stable/mysql`).
-* `release`: *Optional.* File containing the name of the release. (Default: taken from source configuration).
+* `namespace`: *Optional.* Either a file containing the name of the namespace or the name of the namespace. (Default: taken from source configuration).
+* `release`: *Optional.* Either a file containing the name of the release or the name of the release. (Default: taken from source configuration).
 * `values`: *Optional.* File containing the values.yaml for the deployment. Supports setting multiple value files using an array.
 * `override_values`: *Optional.* Array of values that can override those defined in values.yaml. Each entry in
   the array is a map containing a key and a value or path. Value is set directly while path reads the contents of
@@ -54,6 +55,7 @@ on the cluster.
 * `version`: *Optional* Chart version to deploy. Only applies if `chart` is not a file.
 * `delete`: *Optional.* Deletes the release instead of installing it. Requires the `name`. (Default: false)
 * `replace`: *Optional.* Replace deleted release with same name. (Default: false)
+* `force`: *Optional.* Force resource update through delete/recreate if needed. (Default: false)
 * `devel`: *Optional.* Allow development versions of chart to be installed. This is useful when wanting to install pre-release
   charts (i.e. 1.0.2-rc1) without having to specify a version. (Default: false)
 * `wait_until_ready`: *Optional.* Set to the number of seconds it should wait until all the resources in
