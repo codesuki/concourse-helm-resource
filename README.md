@@ -5,7 +5,7 @@ Deploy to [Kubernetes Helm](https://github.com/kubernetes/helm) from [Concourse]
 ## Installing
 
 Add the resource type to your pipeline:
-```
+```yaml
 resource_types:
 - name: helm
   type: docker-image

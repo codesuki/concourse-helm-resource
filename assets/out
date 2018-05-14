@@ -50,7 +50,11 @@ elif [ -n "$namespace_file" ]; then
 fi
 
 if [ -n "$release_file" ]; then
-  release=`cat $source/$release_file`
+  if [ -f "$release_file" ]; then
+    release=`cat $source/$release_file`
+  else
+    release=$release_file
+  fi
 else
   release=$(jq -r '.source.release // ""' < $payload)
 fi
