@@ -54,7 +54,8 @@ on the cluster.
   the array is a map containing a key and a value or path. Value is set directly while path reads the contents of
   the file in that path. A `hide: true` parameter ensures that the value is not logged and instead replaced with `***HIDDEN***`. A `encode: true` parameter ensures that the value will be base64 encoded before it is passed to Helm. This is useful for passing config files.
 * `version`: *Optional* Chart version to deploy. Only applies if `chart` is not a file.
-* `delete`: *Optional.* Deletes the release instead of installing it. Requires the `name`. (Default: false)
+* `delete`: *Optional.* Deletes the release instead of installing it. Requires the release name to be set. (Default: false)
+* `purge`: *Optional.* Purges the release instead of just deleting it. Needs to be set in combination with `delete`. (Default: false)
 * `replace`: *Optional.* Replace deleted release with same name. (Default: false)
 * `force`: *Optional.* Force resource update through delete/recreate if needed. (Default: false)
 * `devel`: *Optional.* Allow development versions of chart to be installed. This is useful when wanting to install pre-release
