@@ -38,6 +38,8 @@ override_values_file=$(jq -r ".params.override_values[]? | if .key and .path and
 override_secrets=$(jq -r ".params.override_values[]? | if .key and .value and .hide then (.key + \"=\" + .value) else empty end | @base64"  < $payload)
 override_secrets_file=$(jq -r ".params.override_values[]? | if .key and .path and .hide and (.encode // false) == false then (.key + \"=\" + .path) else empty end" < $payload)
 override_values_file_encode=$(jq -r ".params.override_values[]? | if .key and .path and .encode and (.hide // false) == false then (.key + \"=\" + .path) else empty end" < $payload)
+override_strings=$(jq -r '.params.override_strings[]? | if .key and .value then (.key + "=" + .value) else empty end' < $payload)
+override_strings_file=$(jq -r '.params.override_strings[]? | if .key and .path then (.key + "=" + .path) else empty end' < $payload)
 
 if [ -z "$chart" ]; then
   echo "invalid payload (missing chart)"
@@ -69,47 +71,59 @@ else
   chart_full="$chart"
 fi
 
-set_overriden_values() {
+set_overridden_values() {
   # Get value from given path
-  for overriden_value_file in $override_values_file; do
+  for overridden_value_file in $override_values_file; do
     # Get key and value for each overridden file value
-    key=${overriden_value_file%%=*}
-    value=${overriden_value_file#*=}
+    key=${overridden_value_file%%=*}
+    value=${overridden_value_file#*=}
     helm_cmd="$helm_cmd --set '$key=$(cat $source/$value)'"
     helm_echo="$helm_echo --set '$key=$(cat $source/$value)'"
   done
 
   # Get value from given path and base64 encode
-  for overriden_value_file_encode in $override_values_file_encode; do
+  for overridden_value_file_encode in $override_values_file_encode; do
     # Get key and value for each overridden file value
-    key=${overriden_value_file_encode%%=*}
-    value=${overriden_value_file_encode#*=}
+    key=${overridden_value_file_encode%%=*}
+    value=${overridden_value_file_encode#*=}
     helm_cmd="$helm_cmd --set '$key=$(cat $source/$value | base64 -w 0)'"
     helm_echo="$helm_echo --set '$key=$(cat $source/$value)'"
   done
 
   # Set value directly
-  for overriden_value in $override_values; do
-    helm_cmd="$helm_cmd --set '$(echo $overriden_value | base64 -d)'"
-    helm_echo="$helm_echo --set '$(echo $overriden_value | base64 -d)'"
+  for overridden_value in $override_values; do
+    helm_cmd="$helm_cmd --set '$(echo $overridden_value | base64 -d)'"
+    helm_echo="$helm_echo --set '$(echo $overridden_value | base64 -d)'"
   done
 
   # Get value from given path, but hide the value in the echo
-  for overriden_secret_file in $override_secrets_file; do
+  for overridden_secret_file in $override_secrets_file; do
     # Get key and value for each overridden file value
-    key=${overriden_secret_file%%=*}
-    value=${overriden_secret_file#*=}
+    key=${overridden_secret_file%%=*}
+    value=${overridden_secret_file#*=}
     helm_cmd="$helm_cmd --set '$key=$(cat $source/$value)'"
-    helm_echo="$helm_echo --set $key=***HIDDEN***"
+    helm_echo="$helm_echo --set '$key=***HIDDEN***'"
   done
 
   # Set value directly, but hide the value in the echo
-  for overriden_secret in $override_secrets; do
-    kv=$(echo $overriden_secret | base64 -d)
+  for overridden_secret in $override_secrets; do
+    kv=$(echo $overridden_secret | base64 -d)
     key=${kv%%=*}
     value=${kv#*=}
     helm_cmd="$helm_cmd --set '$kv'"
     helm_echo="$helm_echo --set '$key=***HIDDEN***'"
+  done
+
+  for overridden_string in $override_strings; do
+      helm_cmd="$helm_cmd --set-string '$overridden_string'"
+      helm_echo="$helm_echo --set-string '$overridden_string'"
+  done
+
+  for overridden_string_file in $override_strings_file; do
+      key=${overridden_string_file%%=*}
+      value=${overridden_string_file#*=}
+      helm_cmd="$helm_cmd --set-string '$key=$(cat $source/$value)'"
+      helm_echo="$helm_echo --set-string '$key=$(cat $source/$value)'"
   done
 }
 
@@ -127,7 +141,7 @@ helm_upgrade() {
       helm_echo="$helm_echo -f $source/$value"
     done
   fi
-  set_overriden_values
+  set_overridden_values
   if [ -n "$wait_until_ready" ] && [ "$wait_until_ready" -gt "0" ]; then
     helm_cmd="$helm_cmd --wait --timeout $wait_until_ready"
     helm_echo="$helm_echo --wait --timeout $wait_until_ready"
