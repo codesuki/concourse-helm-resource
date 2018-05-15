@@ -14,6 +14,7 @@ upgrade-helm:
 	sed -i "" "s/^HELM_VERSION=.*$$/HELM_VERSION=$$HELM_VERSION/" Makefile
 	git add Dockerfile Makefile
 	git commit -m "chore: upgrade helm to $$HELM_VERSION"
+	git tag -a -m $$HELM_VERSION $$HELM_VERSION
 
 build: Dockerfile
 	docker build . -t codesuki/concourse-helm-resource
