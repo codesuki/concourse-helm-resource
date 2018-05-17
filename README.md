@@ -53,6 +53,9 @@ on the cluster.
 * `override_values`: *Optional.* Array of values that can override those defined in values.yaml. Each entry in
   the array is a map containing a key and a value or path. Value is set directly while path reads the contents of
   the file in that path. A `hide: true` parameter ensures that the value is not logged and instead replaced with `***HIDDEN***`. A `encode: true` parameter ensures that the value will be base64 encoded before it is passed to Helm. This is useful for passing config files.
+* `override_strings`: *Optional.* Array of values that can override those defined in values.yaml. Each entry in
+  the array is a map containing a key and a value or path. Value is set directly while path reads the contents of
+  the file in that path. Uses --set-string to force string evaluation of the value.
 * `version`: *Optional* Chart version to deploy. Only applies if `chart` is not a file.
 * `delete`: *Optional.* Deletes the release instead of installing it. Requires the release name to be set. (Default: false)
 * `purge`: *Optional.* Purges the release instead of just deleting it. Needs to be set in combination with `delete`. (Default: false)
