@@ -1,4 +1,4 @@
-FROM codesuki/docker-helm:2.9.0
+FROM codesuki/docker-helm:v2.11.0
 
 RUN apk add --update --upgrade --no-cache jq bash curl coreutils
 
