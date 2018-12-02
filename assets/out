@@ -33,13 +33,6 @@ purge=$(jq -r '.params.purge // "false"' < $payload)
 devel=$(jq -r '.params.devel // "false"' < $payload)
 recreate_pods=$(jq -r '.params.recreate_pods // "false"' < $payload)
 force=$(jq -r '.params.force // "false"' < $payload)
-override_values=$(jq -r ".params.override_values[]? | if .key and .value and (.hide // false) == false then (.key + \"=\" + .value) else empty end | @base64"  < $payload)
-override_values_file=$(jq -r ".params.override_values[]? | if .key and .path and (.hide // false) == false and (.encode // false) == false then (.key + \"=\" + .path) else empty end" < $payload)
-override_secrets=$(jq -r ".params.override_values[]? | if .key and .value and .hide then (.key + \"=\" + .value) else empty end | @base64"  < $payload)
-override_secrets_file=$(jq -r ".params.override_values[]? | if .key and .path and .hide and (.encode // false) == false then (.key + \"=\" + .path) else empty end" < $payload)
-override_values_file_encode=$(jq -r ".params.override_values[]? | if .key and .path and .encode and (.hide // false) == false then (.key + \"=\" + .path) else empty end" < $payload)
-override_strings=$(jq -r '.params.override_strings[]? | if .key and .value then (.key + "=" + .value) else empty end' < $payload)
-override_strings_file=$(jq -r '.params.override_strings[]? | if .key and .path then (.key + "=" + .path) else empty end' < $payload)
 
 if [ -z "$chart" ]; then
   echo "invalid payload (missing chart)"
@@ -72,59 +65,28 @@ else
 fi
 
 set_overridden_values() {
-  # Get value from given path
-  for overridden_value_file in $override_values_file; do
-    # Get key and value for each overridden file value
-    key=${overridden_value_file%%=*}
-    value=${overridden_value_file#*=}
-    helm_cmd="$helm_cmd --set '$key=$(cat $source/$value)'"
-    helm_echo="$helm_echo --set '$key=$(cat $source/$value)'"
-  done
+    while read -r -d '' key && read -r -d '' value && read -r -d '' path && read -r -d '' hidden && read -r -d '' type && read -r -d '' encode; do
+        if [ -n "$path" ]; then
+            value="$(< "$source/$path")"
+        fi
 
-  # Get value from given path and base64 encode
-  for overridden_value_file_encode in $override_values_file_encode; do
-    # Get key and value for each overridden file value
-    key=${overridden_value_file_encode%%=*}
-    value=${overridden_value_file_encode#*=}
-    helm_cmd="$helm_cmd --set '$key=$(cat $source/$value | base64 -w 0)'"
-    helm_echo="$helm_echo --set '$key=$(cat $source/$value)'"
-  done
+        if [ "$encode" != 'false' ]; then
+            value="$(echo $value | base64 -w 0)"
+        fi
 
-  # Set value directly
-  for overridden_value in $override_values; do
-    helm_cmd="$helm_cmd --set '$(echo $overridden_value | base64 -d)'"
-    helm_echo="$helm_echo --set '$(echo $overridden_value | base64 -d)'"
-  done
+        scrubbed_value="$value"
+        if [ "$hidden" != 'false' ]; then
+            scrubbed_value='***HIDDEN***'
+        fi
 
-  # Get value from given path, but hide the value in the echo
-  for overridden_secret_file in $override_secrets_file; do
-    # Get key and value for each overridden file value
-    key=${overridden_secret_file%%=*}
-    value=${overridden_secret_file#*=}
-    helm_cmd="$helm_cmd --set '$key=$(cat $source/$value)'"
-    helm_echo="$helm_echo --set '$key=***HIDDEN***'"
-  done
+        helm_set_opt='--set'
+        if [ "$type" == 'string' ]; then
+            helm_set_opt='--set-string'
+        fi
 
-  # Set value directly, but hide the value in the echo
-  for overridden_secret in $override_secrets; do
-    kv=$(echo $overridden_secret | base64 -d)
-    key=${kv%%=*}
-    value=${kv#*=}
-    helm_cmd="$helm_cmd --set '$kv'"
-    helm_echo="$helm_echo --set '$key=***HIDDEN***'"
-  done
-
-  for overridden_string in $override_strings; do
-      helm_cmd="$helm_cmd --set-string '$overridden_string'"
-      helm_echo="$helm_echo --set-string '$overridden_string'"
-  done
-
-  for overridden_string_file in $override_strings_file; do
-      key=${overridden_string_file%%=*}
-      value=${overridden_string_file#*=}
-      helm_cmd="$helm_cmd --set-string '$key=$(cat $source/$value)'"
-      helm_echo="$helm_echo --set-string '$key=$(cat $source/$value)'"
-  done
+        overridden_args+=("$helm_set_opt" "$key=$value")
+        scrubbed_overridden_args+=("$helm_set_opt" "$key=$scrubbed_value")
+    done < <(jq -j '.params.override_values[]? | if .key and (.value or .path) then (.key, .value // "", .path // "", .hidden // false, .type // "", .encode // false) else empty end | tostring + "\u0000"'  < $payload)
 }
 
 # Find the current revision of a helm release
@@ -133,45 +95,42 @@ current_revision() {
 }
 
 helm_upgrade() {
-  helm_cmd="helm upgrade --install --tiller-namespace $tiller_namespace --namespace $namespace $release"
-  helm_echo="helm upgrade --install --tiller-namespace $tiller_namespace --namespace $namespace $release"
+  upgrade_args=("upgrade" "$release" $chart_full "--tiller-namespace=$tiller_namespace" "--install" "--namespace" "$namespace")
   if [ -n "$values" ]; then
-    for value in $values; do
-      helm_cmd="$helm_cmd -f $source/$value"
-      helm_echo="$helm_echo -f $source/$value"
-    done
+      for value in $values; do
+          upgrade_args+=("-f" "$source/$value")
+      done
   fi
+  overridden_args=()
+  scrubbed_overridden_args=()
   set_overridden_values
   if [ -n "$wait_until_ready" ] && [ "$wait_until_ready" -gt "0" ]; then
-    helm_cmd="$helm_cmd --wait --timeout $wait_until_ready"
-    helm_echo="$helm_echo --wait --timeout $wait_until_ready"
+      upgrade_args+=("--wait" "--timeout" "$wait_until_ready")
   fi
   if [ "$debug" = true ]; then
-    helm_cmd="$helm_cmd --dry-run --debug"
-    helm_echo="$helm_echo --dry-run --debug"
+      upgrade_args+=("--dry-run" "--debug")
   fi
   if [ "$devel" = true ]; then
-    helm_cmd="$helm_cmd --devel"
-    helm_echo="$helm_echo --devel"
+      upgrade_args+=("--devel")
   fi
   if [ -n "$version" ]; then
-    helm_cmd="$helm_cmd --version $version"
-    helm_echo="$helm_echo --version $version"
+      upgrade_args+=("--version" "$version")
   fi
   if [ "$recreate_pods" = true ]; then
-    helm_cmd="$helm_cmd --recreate-pods"
-    helm_echo="$helm_echo --recreate-pods"
+      upgrade_args+=("--recreate-pods")
   fi
   if [ "$force" = true ]; then
-    helm_cmd="$helm_cmd --force"
-    helm_echo="$helm_echo --force"
+      upgrade_args+=("--force")
   fi
+
   logfile="/tmp/log"
   mkdir -p /tmp
-  helm_cmd="$helm_cmd $chart_full | tee $logfile"
-  helm_echo="$helm_echo $chart_full | tee $logfile"
-  echo "Running command $helm_echo"
-  eval "$helm_cmd"
+
+  helm_args=("${upgrade_args[@]}" "${overridden_args[@]}")
+  helm_echo_args=("${upgrade_args[@]}" "${scrubbed_overridden_args[@]}")
+
+  echo "Running command helm ${helm_echo_args[@]} | tee $logfile"
+  helm "${helm_args[@]}" | tee "$logfile"
 }
 
 helm_delete() {
