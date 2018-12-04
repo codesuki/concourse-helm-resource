@@ -70,13 +70,13 @@ set_overridden_values() {
             value="$(< "$source/$path")"
         fi
 
-        if [ "$encode" != 'false' ]; then
-            value="$(echo $value | base64 -w 0)"
-        fi
-
         scrubbed_value="$value"
         if [ "$hidden" != 'false' ]; then
             scrubbed_value='***HIDDEN***'
+        fi
+
+        if [ "$encode" != 'false' ]; then
+            value="$(echo "$value" | base64 -w 0)"
         fi
 
         helm_set_opt='--set'
@@ -86,7 +86,7 @@ set_overridden_values() {
 
         overridden_args+=("$helm_set_opt" "$key=$value")
         scrubbed_overridden_args+=("$helm_set_opt" "$key=$scrubbed_value")
-    done < <(jq -j '.params.override_values[]? | if .key and (.value or .path) then (.key, .value // "", .path // "", .hidden // false, .type // "", .encode // false) else empty end | tostring + "\u0000"'  < $payload)
+    done < <(jq -j '.params.override_values[]? | if .key and (.value or .path) then (.key, .value // "", .path // "", .hide // false, .type // "", .encode // false) else empty end | tostring + "\u0000"'  < $payload)
 }
 
 # Find the current revision of a helm release
