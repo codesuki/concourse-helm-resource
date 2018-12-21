@@ -67,16 +67,16 @@ fi
 set_overridden_values() {
     while read -r -d '' key && read -r -d '' value && read -r -d '' path && read -r -d '' hidden && read -r -d '' type && read -r -d '' encode; do
         if [ -n "$path" ]; then
-            value="$(< "$source/$path")"
+            if [ "$encode" != 'false' ]; then
+                value="$(cat "$source/$path" | base64 -w 0)"
+            else
+                value="$(cat "$source/$path")"
+            fi
         fi
 
         scrubbed_value="$value"
         if [ "$hidden" != 'false' ]; then
             scrubbed_value='***HIDDEN***'
-        fi
-
-        if [ "$encode" != 'false' ]; then
-            value="$(echo "$value" | base64 -w 0)"
         fi
 
         helm_set_opt='--set'
